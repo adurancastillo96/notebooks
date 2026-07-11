@@ -1,0 +1,79 @@
+name: Auto Label PRs
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+
+permissions:
+  pull-requests: write
+
+jobs:
+  label:
+    name: Auto Label
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Detect changes and apply labels
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { data: files } = await github.rest.pulls.listFiles({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.issue.number,
+            });
+
+            const labels = new Set();
+            const filenames = files.map(f => f.filename);
+
+            if (filenames.some(f => f.startsWith('src/') && f.endsWith('.ipynb'))) {
+              labels.add('📓 notebook');
+            }
+            if (filenames.some(f => f.startsWith('.agents/'))) {
+              labels.add('🤖 agents');
+            }
+            if (filenames.some(f => f.startsWith('spec/'))) {
+              labels.add('📋 spec');
+            }
+            if (filenames.some(f => f.startsWith('.github/'))) {
+              labels.add('⚙️ ci');
+            }
+
+            const title = context.payload.pull_request.title.toLowerCase();
+            if (title.includes('fix')) labels.add('🐛 bug-fix');
+            if (title.includes('review')) labels.add('👀 review-needed');
+
+            if (labels.size > 0) {
+              // Ensure labels exist
+              for (const label of labels) {
+                try {
+                  await github.rest.issues.getLabel({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    name: label,
+                  });
+                } catch (e) {
+                  await github.rest.issues.createLabel({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    name: label,
+                    color: label.includes('notebook') ? '0075ca' :
+                           label.includes('agents') ? '7057ff' :
+                           label.includes('spec') ? 'e4e669' :
+                           label.includes('ci') ? 'c5def5' :
+                           label.includes('bug') ? 'd73a4a' :
+                           label.includes('review') ? 'fbca04' : 'ededed',
+                  });
+                }
+              }
+
+              await github.rest.issues.addLabels({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                labels: [...labels],
+              });
+            }

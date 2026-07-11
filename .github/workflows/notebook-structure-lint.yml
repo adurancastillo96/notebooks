@@ -1,0 +1,30 @@
+name: Notebook Structure Lint
+
+on:
+  pull_request:
+    paths:
+      - 'src/**/*.ipynb'
+
+jobs:
+  structure-lint:
+    name: Validate Notebook Structure
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Find changed notebooks
+        id: changed
+        run: |
+          # Fetch origin main to compare against
+          git fetch origin main --depth=1
+          NOTEBOOKS=$(git diff --name-only origin/main...HEAD -- 'src/**/*.ipynb' | tr '\n' ' ')
+          echo "files=$NOTEBOOKS" >> $GITHUB_OUTPUT
+
+      - name: Run structure lint
+        if: steps.changed.outputs.files != ''
+        run: python .github/scripts/check_notebook_structure.py ${{ steps.changed.outputs.files }}

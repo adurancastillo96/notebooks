@@ -1,0 +1,158 @@
+#!/usr/bin/env python3
+import json
+import sys
+import os
+import re
+
+def log_error(file, check, message):
+    print(f"::error file={file},title={check}::{message}")
+    print(f"❌ FAIL [{check}]: {message}")
+
+def log_pass(check, message):
+    print(f"✅ PASS [{check}]: {message}")
+
+def check_file(filepath):
+    print(f"\nChecking notebook: {filepath}")
+    filename = os.path.basename(filepath)
+    
+    # Check naming convention
+    if not re.match(r'^[a-z0-9]+(-[a-z0-9]+)*\.ipynb$', filename):
+        log_error(filepath, "File Naming", "Filename must be kebab-case (lowercase, numbers, and hyphens only, e.g., category-name.ipynb)")
+        return False
+        
+    try:
+        with open(filepath, 'r', encoding='utf-8') as f:
+            notebook = json.load(f)
+    except Exception as e:
+        log_error(filepath, "JSON Parsing", f"Failed to parse notebook JSON: {str(e)}")
+        return False
+        
+    cells = notebook.get('cells', [])
+    if not cells:
+        log_error(filepath, "Empty Notebook", "Notebook contains no cells")
+        return False
+        
+    passed = True
+    
+    # 1. License cell check (first cell must be code cell with Apache 2.0)
+    first_cell = cells[0]
+    if first_cell.get('cell_type') != 'code':
+        log_error(filepath, "License Header", "First cell must be a code cell containing the Apache 2.0 license header")
+        passed = False
+    else:
+        source_text = "".join(first_cell.get('source', []))
+        if "Copyright" not in source_text or "Apache License" not in source_text:
+            log_error(filepath, "License Header", "First code cell does not contain a valid Apache 2.0 license header")
+            passed = False
+        else:
+            log_pass("License Header", "First code cell contains Apache 2.0 license header")
+            
+    # 2. H1 Title check (second cell must be markdown with H1 title, not a TODO)
+    if len(cells) < 2:
+        log_error(filepath, "Notebook Length", "Notebook is too short (must contain at least structure header cells)")
+        return False
+        
+    second_cell = cells[1]
+    if second_cell.get('cell_type') != 'markdown':
+        log_error(filepath, "H1 Title", "Second cell must be a markdown cell containing the H1 title heading")
+        passed = False
+    else:
+        source_text = "".join(second_cell.get('source', []))
+        if not source_text.startswith('# '):
+            log_error(filepath, "H1 Title", "Second cell markdown must start with a single H1 header '# '")
+            passed = False
+        elif "[TODO]" in source_text or "TODO" in source_text:
+            log_error(filepath, "H1 Title", "H1 title heading contains [TODO] or placeholder text")
+            passed = False
+        else:
+            log_pass("H1 Title", f"Valid H1 heading found: {source_text.strip()}")
+            
+    # 3 & 4. Required markdown sections check (Overview, Installation, Before you begin, Cleaning up)
+    # Required subsections: Objective, Dataset, Costs
+    required_h2 = {
+        "Overview": False,
+        "Installation": False,
+        "Before you begin": False,
+        "Cleaning up": False
+    }
+    required_h3 = {
+        "Objective": False,
+        "Dataset": False,
+        "Costs": False
+    }
+    
+    for cell in cells:
+        if cell.get('cell_type') == 'markdown':
+            source_lines = cell.get('source', [])
+            for line in source_lines:
+                line_clean = line.strip()
+                # Check H2
+                if line_clean.startswith('## '):
+                    header_text = line_clean[3:].strip()
+                    for h2 in required_h2:
+                        if h2.lower() in header_text.lower():
+                            required_h2[h2] = True
+                # Check H3
+                elif line_clean.startswith('### '):
+                    header_text = line_clean[4:].strip()
+                    for h3 in required_h3:
+                        if h3.lower() in header_text.lower():
+                            required_h3[h3] = True
+                            
+    for h2, found in required_h2.items():
+        if not found:
+            log_error(filepath, "Required Section", f"Missing required section header '## {h2}'")
+            passed = False
+        else:
+            log_pass("Required Section", f"Found section '## {h2}'")
+            
+    for h3, found in required_h3.items():
+        if not found:
+            log_error(filepath, "Required Subsection", f"Missing required subsection header '### {h3}'")
+            passed = False
+        else:
+            log_pass("Required Subsection", f"Found subsection '### {h3}'")
+            
+    # 5 & 6. Project ID and Region cells check
+    has_project_id = False
+    has_region = False
+    
+    for cell in cells:
+        if cell.get('cell_type') == 'code':
+            source_text = "".join(cell.get('source', []))
+            # Match PROJECT_ID = ... (ignoring comments)
+            if re.search(r'^\s*PROJECT_ID\s*=\s*["\']', source_text, re.MULTILINE):
+                has_project_id = True
+            if re.search(r'^\s*REGION\s*=\s*["\']', source_text, re.MULTILINE):
+                has_region = True
+                
+    if not has_project_id:
+        log_error(filepath, "Parameterization", "Missing PROJECT_ID variable assignment in code cells")
+        passed = False
+    else:
+        log_pass("Parameterization", "Found PROJECT_ID parameterization")
+        
+    if not has_region:
+        log_error(filepath, "Parameterization", "Missing REGION variable assignment in code cells")
+        passed = False
+    else:
+        log_pass("Parameterization", "Found REGION parameterization")
+        
+    return passed
+
+if __name__ == "__main__":
+    if len(sys.argv) < 2:
+        print("Usage: check_notebook_structure.py <notebook_path1> <notebook_path2> ...")
+        sys.exit(0)
+        
+    files_failed = 0
+    for filepath in sys.argv[1:]:
+        if not check_file(filepath):
+            files_failed += 1
+            
+    if files_failed > 0:
+        print(f"\n❌ Lint failed: {files_failed} notebook(s) did not meet standard structure requirements.")
+        sys.exit(1)
+    else:
+        print("\n✅ Lint passed: All notebooks conform to the standard structure requirements.")
+        sys.exit(0)
