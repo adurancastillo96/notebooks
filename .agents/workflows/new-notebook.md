@@ -1,3 +1,7 @@
+---
+description: End-to-end workflow for planning, authoring, and review of a single new workshop notebook.
+---
+
 # Workflow: New Notebook
 
 End-to-end workflow for planning, authoring, and review of a single new workshop notebook.

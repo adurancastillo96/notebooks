@@ -1,3 +1,7 @@
+---
+description: Structured review and quality verification process before merging notebook PRs.
+---
+
 # Workflow: Notebook Review
 
 Structured review and quality verification process before merging notebook PRs.

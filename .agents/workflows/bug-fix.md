@@ -1,3 +1,7 @@
+---
+description: Diagnose, fix, and verify a reported notebook bug.
+---
+
 # Workflow: Bug Fix
 
 Diagnose, fix, and verify a reported notebook bug.
