@@ -14,7 +14,8 @@ Structured review and quality verification process before merging notebook PRs.
 - Run the `notebook-lint` skill to verify structure compliance:
   - Verify license header, H1 title, environment note.
   - Verify presence of required H2 sections (Overview, Installation, Before you begin, Cleaning up).
-  - Verify file naming convention (`category-name.ipynb`).
+  - Verify file naming convention (`category-name.md`).
+  - Verify the compiled output in `artifacts/category-name.ipynb` exists and matches the source.
 
 ## Step 3 — Quality and Security Review
 - Run `review-notebook` on the cells:

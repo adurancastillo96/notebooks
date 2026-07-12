@@ -28,9 +28,11 @@ End-to-end workflow for planning, authoring, and review of a single new workshop
 - Use the `research-dataset` skill to find and document appropriate open datasets.
 
 ## Step 5 — Author the Notebook
-- Use the `create-notebook` skill to scaffold from the template.
-- Implement Python cells and markdown descriptions following repository rules.
-- Ensure all created resources are deleted in the cleanup cell.
+- Use the `create-notebook` skill to scaffold from the `notebook_template.md` template.
+- Implement Python code blocks and markdown descriptions following repository rules.
+- Ensure all created resources are deleted in the cleanup block.
+- Compile the notebook locally to the `artifacts/` folder:
+  `python .github/scripts/convert_notebook.py --to-ipynb src/<notebook>.md artifacts/<notebook>.ipynb`
 
 ## Step 6 — Self-Review & Lint
 - Use `notebook-lint` to verify structure, naming, and placeholder completion.
@@ -38,7 +40,7 @@ End-to-end workflow for planning, authoring, and review of a single new workshop
 - Run `fix-notebook` to resolve any automated linter warnings.
 
 ## Step 7 — Pull Request Preparation
-- Create a PR containing the notebook file in `src/` and the spec task.
+- Create a PR containing the notebook file in `src/`, the compiled notebook in `artifacts/`, and the spec task.
 - Write a clear PR description detailing:
   - Notebook topic and target audience.
   - Learning objectives achieved.

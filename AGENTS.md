@@ -5,8 +5,9 @@ A spec-driven repository for creating, reviewing, and maintaining workshop noteb
 Stack: Python · Jupyter Notebooks · Google Cloud SDK
 
 ## Essential Commands
-- lint:    `python .github/scripts/check_notebook_structure.py src/<notebook>.ipynb`
-- todos:   `python .github/scripts/check_todos.py src/<notebook>.ipynb`
+- lint:    `python .github/scripts/check_notebook_structure.py src/<notebook>.md`
+- todos:   `python .github/scripts/check_todos.py src/<notebook>.md`
+- compile: `python .github/scripts/convert_notebook.py --to-ipynb src/<notebook>.md artifacts/<notebook>.ipynb`
 - new:     Use the `create-notebook` skill with a task spec
 
 ## Architecture in One Line
@@ -20,7 +21,7 @@ Flat notebook repository with spec-driven authoring workflow — see spec/ARCHIT
 - Before installing dependencies: ask for human confirmation.
 - If there is ambiguity: stop and ask, do not assume.
 - Every spec artifact lives in `spec/` — notebooks implement specs, never the reverse.
-- All notebooks must follow the template structure defined in `notebook_template.ipynb`.
+- All notebooks must follow the template structure defined in `notebook_template.md`.
 
 ## Agent Layer
 See `.agents/LOADOUT.md` to know which agent/skill to use in each situation.

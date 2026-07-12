@@ -7,7 +7,7 @@ tools: [Read, Write]
 
 # Skill: License Header Adder
 
-Prepend standard Apache 2.0 license headers to notebook source files.
+Prepend standard Apache 2.0 license headers to markdown source files.
 
 ## Steps
 
@@ -15,9 +15,9 @@ Prepend standard Apache 2.0 license headers to notebook source files.
    - Read the license content from `resources/HEADER.txt`.
 
 2. **Apply to Notebook**
-   - Parse the target notebook JSON.
-   - Insert a code cell containing the license lines at the very beginning of the cells array.
-   - The cell should have `"execution_count": null`, `"outputs": []`, and `"source"` populated with the license comment lines.
+   - Read the target notebook markdown file.
+   - Insert a python code block containing the license lines at the very beginning of the file.
+   - The block should be wrapped with ` ```python ` and ` ``` `.
 
 3. **Verify**
-   - Verify the license code cell is the first cell in the array.
+   - Verify the license code block is the first content in the file.

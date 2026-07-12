@@ -3,7 +3,7 @@ name: Notebook Structure Lint
 on:
   pull_request:
     paths:
-      - 'src/**/*.ipynb'
+      - 'src/**/*.md'
 
 jobs:
   structure-lint:
@@ -22,7 +22,7 @@ jobs:
         run: |
           # Fetch origin main to compare against
           git fetch origin main --depth=1
-          NOTEBOOKS=$(git diff --name-only origin/main...HEAD -- 'src/**/*.ipynb' | tr '\n' ' ')
+          NOTEBOOKS=$(git diff --name-only origin/main...HEAD -- 'src/**/*.md' | tr '\n' ' ')
           echo "files=$NOTEBOOKS" >> $GITHUB_OUTPUT
 
       - name: Run structure lint

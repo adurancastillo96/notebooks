@@ -3,7 +3,7 @@ name: AI Notebook Code Review
 on:
   pull_request:
     paths:
-      - 'src/**/*.ipynb'
+      - 'src/**/*.md'
 
 permissions:
   pull-requests: write
@@ -23,7 +23,7 @@ jobs:
         id: diff
         run: |
           git fetch origin main --depth=1
-          DIFF=$(git diff origin/main...HEAD -- 'src/**/*.ipynb' | head -c 30000)
+          DIFF=$(git diff origin/main...HEAD -- 'src/**/*.md' | head -c 30000)
           echo "notebook_diff<<DIFF_EOF" >> $GITHUB_OUTPUT
           echo "$DIFF" >> $GITHUB_OUTPUT
           echo "DIFF_EOF" >> $GITHUB_OUTPUT

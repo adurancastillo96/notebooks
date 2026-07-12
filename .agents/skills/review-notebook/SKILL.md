@@ -28,12 +28,13 @@ Perform a thorough educational and code quality review on modified or completed 
    - Verify all required template sections exist and follow the exact ordering.
    - Scan for hardcoded credentials, project IDs, or bucket names.
    - Scan for unresolved `{TODO:...}` or `[TODO]` placeholders.
-   - Check if all import statements are grouped in the Import libraries cell.
-   - Verify that all code cells have preceding markdown explanation cells.
+   - Check if all import statements are grouped in the Import libraries cell/block.
+   - Verify that all code blocks have preceding markdown explanation blocks.
    - Verify that the Cleaning up section actually contains deletion statements for all created GCP resources.
 
-3. **Check Naming**
-   - Verify file naming follows `category-name.ipynb`.
+3. **Check Naming & Compilation**
+   - Verify file naming follows `category-name.md`.
+   - Verify that a corresponding compiled notebook exists in `artifacts/category-name.ipynb` and is in sync.
 
 4. **Produce Report**
    - Save a review report markdown file in `reports/` showing:

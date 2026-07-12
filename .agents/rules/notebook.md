@@ -1,11 +1,15 @@
+---
+trigger: always_on
+---
+
 # Notebook Rules
 
 Rules specifically for notebook structure, cell ordering, and naming convention.
 
 ## Template Compliance
-- All workshop notebooks must follow the standard structure defined in `notebook_template.ipynb`.
+- All workshop notebooks must follow the standard structure defined in `notebook_template.md`.
 - The following sections must be present and ordered exactly as in the template:
-  1. **License cell**: An Apache 2.0 license code cell (starts with `# Copyright 2023 Google LLC`)
+  1. **License cell**: An Apache 2.0 license code cell (starts with `# Antony Duran`)
   2. **H1 title heading**: A markdown cell with a single `# ` header. Must not be `[TODO]`.
   3. **Tested Environment Note**: Markdown cell specifying the tested Python version and environment.
   4. **Overview**: Explain what the tutorial demonstrates, who it's for, and prerequisites.
@@ -14,8 +18,8 @@ Rules specifically for notebook structure, cell ordering, and naming convention.
   7. **Costs**: List billable components with links to pricing documentation.
   8. **Installation**: Code cell running `! pip3 install` for required libraries.
   9. **Before you begin**:
-     - **Set your project ID**: Code cell parameterizing `PROJECT_ID`.
-     - **Region**: Code cell parameterizing `REGION`.
+     - **Set your project ID**: Code cell parameterizing `GOOGLE_CLOUD_PROJECT`.
+     - **Region**: Code cell parameterizing `GOOGLE_CLOUD_LOCATION`.
      - **Authenticate your Google Cloud account**: Detailed instructions and commented out authentication cells.
      - **Create a Cloud Storage bucket**: Parameterizing `BUCKET_URI` and gsutil bucket creation.
   10. **Import libraries**: Code cell with all required imports.
@@ -30,13 +34,14 @@ Rules specifically for notebook structure, cell ordering, and naming convention.
 - Code cells must be readable and educational.
 
 ## Parameterization
-- `PROJECT_ID`, `REGION`, `BUCKET_URI` must be parameterized using `@param` annotations so they are easily configurable by users.
+- `GOOGLE_CLOUD_PROJECT`, `GOOGLE_CLOUD_LOCATION`, `BUCKET_URI` must be parameterized using `@param` annotations so they are easily configurable by users.
 - Never hardcode user-specific project IDs, bucket names, or API credentials.
 
-## Notebook Naming
-- All notebooks in `src/` must follow the kebab-case naming convention: `category-name-of-the-notebook.ipynb`.
+## Notebook Naming & Compilation
+- All source notebooks in `src/` must be generated in markdown and follow the kebab-case naming convention: `category-name-of-the-notebook.md`.
 - Allowed categories: `vertex-ai`, `bigquery`, `data-science`, `ml`, `aerospace`, `research`, etc.
-- Example: `src/vertex-ai-custom-training.ipynb`
+- Example: `src/vertex-ai-custom-training.md`
+- **Compilation**: All markdown notebooks in `src/` must be compiled to `.ipynb` format in the `artifacts/` folder (e.g. `artifacts/vertex-ai-custom-training.ipynb`) using `.github/scripts/convert_notebook.py`. The `artifacts/` folder contains all final Jupyter notebooks.
 
 ## Outputs
 - Save notebooks with empty cell outputs unless the cell displays an expected demonstration result (e.g., plot, prediction table) that workshop attendees should see pre-rendered.

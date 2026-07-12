@@ -96,14 +96,15 @@ Trigger: `/startcycle <notebook-topic>` — orchestrate the spec-driven developm
 | **Persona** | `@notebook-author` |
 | **Skill** | `create-notebook` |
 | **Input** | `spec/tasks/TXXX.md` |
-| **Output** | Completed notebook at `src/category-name.ipynb` |
+| **Output** | Completed notebook at `src/category-name.md` (compiled to `artifacts/category-name.ipynb`) |
 
 **Steps:**
 1. Activate `create-notebook` for the authoring task.
-2. Follow `notebook_template.ipynb` structural cells exactly.
-3. Implement fully functional Python code blocks with preceding descriptive markdown cells.
-4. Verify that the cleaning up cell is complete.
-5. Mark the task file complete once the notebook is successfully authored.
+2. Follow `notebook_template.md` structural sections exactly.
+3. Implement fully functional Python code blocks with preceding descriptive markdown sections.
+4. Verify that the cleaning up block is complete.
+5. Compile the notebook to `artifacts/category-name.ipynb` using the conversion script.
+6. Mark the task file complete once the notebook is successfully authored and compiled.
 
 > ⛔ **CHECKPOINT 4** — Human reviews the notebook structure and cells.
 > Reply **"Approved"** before Phase 5 starts.

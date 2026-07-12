@@ -3,7 +3,7 @@ name: TODO/Placeholder Check
 on:
   pull_request:
     paths:
-      - 'src/**/*.ipynb'
+      - 'src/**/*.md'
 
 jobs:
   todo-check:
@@ -21,7 +21,7 @@ jobs:
         id: changed
         run: |
           git fetch origin main --depth=1
-          NOTEBOOKS=$(git diff --name-only origin/main...HEAD -- 'src/**/*.ipynb' | tr '\n' ' ')
+          NOTEBOOKS=$(git diff --name-only origin/main...HEAD -- 'src/**/*.md' | tr '\n' ' ')
           echo "files=$NOTEBOOKS" >> $GITHUB_OUTPUT
 
       - name: Check for unfilled TODOs

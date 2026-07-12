@@ -11,23 +11,85 @@ def log_error(file, check, message):
 def log_pass(check, message):
     print(f"✅ PASS [{check}]: {message}")
 
+def parse_md_to_cells(filepath):
+    with open(filepath, 'r', encoding='utf-8') as f:
+        lines = f.readlines()
+        
+    cells = []
+    current_cell_type = None  # 'code' or 'markdown'
+    current_lines = []
+    
+    def save_cell():
+        if not current_lines:
+            return
+        if current_cell_type == 'code':
+            cells.append({
+                "cell_type": "code",
+                "source": list(current_lines)
+            })
+        else:
+            source_str = "".join(current_lines).strip()
+            if source_str:
+                cells.append({
+                    "cell_type": "markdown",
+                    "source": list(current_lines)
+                })
+                
+    for line in lines:
+        stripped = line.strip()
+        if stripped.startswith("```python"):
+            if current_lines:
+                current_cell_type = 'markdown'
+                save_cell()
+            current_cell_type = 'code'
+            current_lines = []
+        elif current_cell_type == 'code' and stripped == "```":
+            save_cell()
+            current_cell_type = None
+            current_lines = []
+        else:
+            if current_cell_type == 'code':
+                current_lines.append(line)
+            else:
+                is_header = False
+                if re.match(r'^#{1,4}\s+', stripped):
+                    is_header = True
+                if is_header and current_lines:
+                    current_cell_type = 'markdown'
+                    save_cell()
+                    current_lines = []
+                current_lines.append(line)
+    if current_lines:
+        if current_cell_type is None:
+            current_cell_type = 'markdown'
+        save_cell()
+    return cells
+
 def check_file(filepath):
     print(f"\nChecking notebook: {filepath}")
     filename = os.path.basename(filepath)
     
-    # Check naming convention
-    if not re.match(r'^[a-z0-9]+(-[a-z0-9]+)*\.ipynb$', filename):
-        log_error(filepath, "File Naming", "Filename must be kebab-case (lowercase, numbers, and hyphens only, e.g., category-name.ipynb)")
+    # Check naming convention and parse structure
+    if filename.endswith('.md'):
+        if not re.match(r'^[a-z0-9]+(-[a-z0-9]+)*\.md$', filename):
+            log_error(filepath, "File Naming", "Filename must be kebab-case (lowercase, numbers, and hyphens only, e.g., category-name.md)")
+            return False
+        cells = parse_md_to_cells(filepath)
+    elif filename.endswith('.ipynb'):
+        if not re.match(r'^[a-z0-9]+(-[a-z0-9]+)*\.ipynb$', filename):
+            log_error(filepath, "File Naming", "Filename must be kebab-case (lowercase, numbers, and hyphens only, e.g., category-name.ipynb)")
+            return False
+        try:
+            with open(filepath, 'r', encoding='utf-8') as f:
+                notebook = json.load(f)
+            cells = notebook.get('cells', [])
+        except Exception as e:
+            log_error(filepath, "JSON Parsing", f"Failed to parse notebook JSON: {str(e)}")
+            return False
+    else:
+        log_error(filepath, "File Type", "Unsupported file type (must be .md or .ipynb)")
         return False
         
-    try:
-        with open(filepath, 'r', encoding='utf-8') as f:
-            notebook = json.load(f)
-    except Exception as e:
-        log_error(filepath, "JSON Parsing", f"Failed to parse notebook JSON: {str(e)}")
-        return False
-        
-    cells = notebook.get('cells', [])
     if not cells:
         log_error(filepath, "Empty Notebook", "Notebook contains no cells")
         return False
@@ -41,7 +103,7 @@ def check_file(filepath):
         passed = False
     else:
         source_text = "".join(first_cell.get('source', []))
-        if "Copyright" not in source_text or "Apache License" not in source_text:
+        if "Duran" not in source_text or "Apache License" not in source_text:
             log_error(filepath, "License Header", "First code cell does not contain a valid Apache 2.0 license header")
             passed = False
         else:
@@ -114,29 +176,29 @@ def check_file(filepath):
             log_pass("Required Subsection", f"Found subsection '### {h3}'")
             
     # 5 & 6. Project ID and Region cells check
-    has_project_id = False
-    has_region = False
+    has_google_cloud_project = False
+    has_google_cloud_location = False
     
     for cell in cells:
         if cell.get('cell_type') == 'code':
             source_text = "".join(cell.get('source', []))
-            # Match PROJECT_ID = ... (ignoring comments)
-            if re.search(r'^\s*PROJECT_ID\s*=\s*["\']', source_text, re.MULTILINE):
-                has_project_id = True
-            if re.search(r'^\s*REGION\s*=\s*["\']', source_text, re.MULTILINE):
-                has_region = True
+            # Match GOOGLE_CLOUD_PROJECT = ... (ignoring comments)
+            if re.search(r'^\s*(?:GOOGLE_CLOUD_PROJECT|PROJECT_ID)\s*=\s*["\']', source_text, re.MULTILINE):
+                has_google_cloud_project = True
+            if re.search(r'^\s*(?:GOOGLE_CLOUD_LOCATION|REGION)\s*=\s*["\']', source_text, re.MULTILINE):
+                has_google_cloud_location = True
                 
-    if not has_project_id:
-        log_error(filepath, "Parameterization", "Missing PROJECT_ID variable assignment in code cells")
+    if not has_google_cloud_project:
+        log_error(filepath, "Parameterization", "Missing GOOGLE_CLOUD_PROJECT (or PROJECT_ID) variable assignment in code cells")
         passed = False
     else:
-        log_pass("Parameterization", "Found PROJECT_ID parameterization")
+        log_pass("Parameterization", "Found GOOGLE_CLOUD_PROJECT parameterization")
         
-    if not has_region:
-        log_error(filepath, "Parameterization", "Missing REGION variable assignment in code cells")
+    if not has_google_cloud_location:
+        log_error(filepath, "Parameterization", "Missing GOOGLE_CLOUD_LOCATION (or REGION) variable assignment in code cells")
         passed = False
     else:
-        log_pass("Parameterization", "Found REGION parameterization")
+        log_pass("Parameterization", "Found GOOGLE_CLOUD_LOCATION parameterization")
         
     return passed
 

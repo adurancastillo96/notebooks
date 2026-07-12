@@ -8,9 +8,9 @@ Mandatory security rules for GCP credentials and secret handling in workshop not
 - Explain the Workbench authentication workflow in markdown cells so users understand how billing and identities are resolved.
 
 ## Project & Resource Configuration
-- Always use parameterized variables (`PROJECT_ID = "[your-project-id]"  # @param {type:"string"}`) for GCP projects.
-- Always parameterize `REGION = "us-central1"  # @param {type:"string"}` and `BUCKET_URI = f"gs://your-bucket-name-{PROJECT_ID}-unique"  # @param {type:"string"}`.
-- Use unique suffixes for resource names (endpoints, models, buckets) by appending the project ID or region to avoid naming collisions and resource leaks.
+- Always use parameterized variables (`GOOGLE_CLOUD_PROJECT = "[your-google-cloud-project]"  # @param {type:"string"}`) for GCP projects.
+- Always parameterize `GOOGLE_CLOUD_LOCATION = "us-central1"  # @param {type:"string"}` and `BUCKET_URI = f"gs://your-bucket-name-{GOOGLE_CLOUD_PROJECT}-unique"  # @param {type:"string"}`.
+- Use unique suffixes for resource names (endpoints, models, buckets) by appending the project ID or google-cloud-location to avoid naming collisions and resource leaks.
 - Ensure that the Cleaning up section has comprehensive resource deletion logic to prevent users from incurring unexpected GCP costs.
 
 ## CI/CD and Secrets

@@ -2,21 +2,85 @@
 import json
 import sys
 import os
+import re
 
 def log_warning(file, line_num, cell_idx, cell_type, pattern, line_content):
     print(f"::warning file={file},line={line_num},title=Unfilled Placeholder::Cell {cell_idx} ({cell_type}) contains placeholder '{pattern}'")
     print(f"⚠️  {file}: Cell {cell_idx} ({cell_type}) line {line_num} contains placeholder '{pattern}': \"{line_content}\"")
 
+def parse_md_to_cells(filepath):
+    with open(filepath, 'r', encoding='utf-8') as f:
+        lines = f.readlines()
+        
+    cells = []
+    current_cell_type = None  # 'code' or 'markdown'
+    current_lines = []
+    
+    def save_cell():
+        if not current_lines:
+            return
+        if current_cell_type == 'code':
+            cells.append({
+                "cell_type": "code",
+                "source": list(current_lines)
+            })
+        else:
+            source_str = "".join(current_lines).strip()
+            if source_str:
+                cells.append({
+                    "cell_type": "markdown",
+                    "source": list(current_lines)
+                })
+                
+    for line in lines:
+        stripped = line.strip()
+        if stripped.startswith("```python"):
+            if current_lines:
+                current_cell_type = 'markdown'
+                save_cell()
+            current_cell_type = 'code'
+            current_lines = []
+        elif current_cell_type == 'code' and stripped == "```":
+            save_cell()
+            current_cell_type = None
+            current_lines = []
+        else:
+            if current_cell_type == 'code':
+                current_lines.append(line)
+            else:
+                is_header = False
+                if re.match(r'^#{1,4}\s+', stripped):
+                    is_header = True
+                if is_header and current_lines:
+                    current_cell_type = 'markdown'
+                    save_cell()
+                    current_lines = []
+                current_lines.append(line)
+    if current_lines:
+        if current_cell_type is None:
+            current_cell_type = 'markdown'
+        save_cell()
+    return cells
+
 def check_todos(filepath):
     print(f"Scanning for placeholders in: {filepath}")
-    try:
-        with open(filepath, 'r', encoding='utf-8') as f:
-            notebook = json.load(f)
-    except Exception as e:
-        print(f"❌ Failed to parse JSON for {filepath}: {str(e)}")
+    filename = os.path.basename(filepath)
+    
+    cells = []
+    if filename.endswith('.md'):
+        cells = parse_md_to_cells(filepath)
+    elif filename.endswith('.ipynb'):
+        try:
+            with open(filepath, 'r', encoding='utf-8') as f:
+                notebook = json.load(f)
+            cells = notebook.get('cells', [])
+        except Exception as e:
+            print(f"❌ Failed to parse JSON for {filepath}: {str(e)}")
+            return 0
+    else:
+        print(f"❌ Unsupported file type: {filepath}")
         return 0
         
-    cells = notebook.get('cells', [])
     placeholders = [
         "{TODO:",
         "{TODO ",
@@ -33,14 +97,9 @@ def check_todos(filepath):
         cell_type = cell.get('cell_type', 'unknown')
         source_lines = cell.get('source', [])
         
-        # Skip the first cell since it contains the license header which could mention Apache License references,
-        # but check for placeholders anyway, except we ignore Copyright date ranges.
-        # Let's check all cells.
         for line_num, line in enumerate(source_lines, 1):
             for pattern in placeholders:
                 if pattern in line:
-                    # Ignore the template cell instructions themselves if checking the template file itself,
-                    # but since this script is for authored notebooks in src/, we check everything.
                     line_truncated = line.strip()
                     if len(line_truncated) > 60:
                         line_truncated = line_truncated[:57] + "..."
