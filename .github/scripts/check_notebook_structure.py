@@ -129,7 +129,7 @@ def check_file(filepath):
         else:
             log_pass("H1 Title", f"Valid H1 heading found: {source_text.strip()}")
             
-    # 3 & 4. Required markdown sections check (Overview, Installation, Before you begin, Cleaning up)
+    # Required sections must appear in the template order, not merely exist somewhere.
     # Required subsections: Objective, Dataset, Costs
     required_h2 = {
         "Overview": False,
@@ -143,6 +143,7 @@ def check_file(filepath):
         "Costs": False
     }
     
+    headings = []
     for cell in cells:
         if cell.get('cell_type') == 'markdown':
             source_lines = cell.get('source', [])
@@ -154,12 +155,14 @@ def check_file(filepath):
                     for h2 in required_h2:
                         if h2.lower() in header_text.lower():
                             required_h2[h2] = True
+                            headings.append(("h2", h2))
                 # Check H3
                 elif line_clean.startswith('### '):
                     header_text = line_clean[4:].strip()
                     for h3 in required_h3:
                         if h3.lower() in header_text.lower():
                             required_h3[h3] = True
+                            headings.append(("h3", h3))
                             
     for h2, found in required_h2.items():
         if not found:
@@ -174,6 +177,23 @@ def check_file(filepath):
             passed = False
         else:
             log_pass("Required Subsection", f"Found subsection '### {h3}'")
+
+    expected_heading_order = [
+        ("h2", "Overview"),
+        ("h3", "Objective"),
+        ("h3", "Dataset"),
+        ("h3", "Costs"),
+        ("h2", "Installation"),
+        ("h2", "Before you begin"),
+        ("h2", "Cleaning up"),
+    ]
+    heading_positions = {heading: index for index, heading in enumerate(headings)}
+    observed_positions = [heading_positions.get(heading, -1) for heading in expected_heading_order]
+    if any(position < 0 for position in observed_positions) or observed_positions != sorted(observed_positions):
+        log_error(filepath, "Section Order", "Required template sections are missing or out of order")
+        passed = False
+    else:
+        log_pass("Section Order", "Required template sections follow the template order")
             
     # 5 & 6. Project ID and Region cells check
     has_google_cloud_project = False
@@ -183,9 +203,9 @@ def check_file(filepath):
         if cell.get('cell_type') == 'code':
             source_text = "".join(cell.get('source', []))
             # Match GOOGLE_CLOUD_PROJECT = ... (ignoring comments)
-            if re.search(r'^\s*(?:GOOGLE_CLOUD_PROJECT|PROJECT_ID)\s*=\s*["\']', source_text, re.MULTILINE):
+            if re.search(r'^\s*(?:GOOGLE_CLOUD_PROJECT|PROJECT_ID)\s*=\s*["\'].*@param', source_text, re.MULTILINE):
                 has_google_cloud_project = True
-            if re.search(r'^\s*(?:GOOGLE_CLOUD_LOCATION|REGION)\s*=\s*["\']', source_text, re.MULTILINE):
+            if re.search(r'^\s*(?:GOOGLE_CLOUD_LOCATION|REGION)\s*=\s*["\'].*@param', source_text, re.MULTILINE):
                 has_google_cloud_location = True
                 
     if not has_google_cloud_project:

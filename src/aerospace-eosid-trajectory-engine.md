@@ -22,7 +22,7 @@
 
 ## Overview
 
-This tutorial demonstrates how to build a collaborative multi-agent trajectory calculation engine for Engine Out Standard Instrument Departures (EOSID) using the Google Agent Development Kit (ADK) and Vertex AI (Gemini).
+This tutorial demonstrates how to define a collaborative multi-agent trajectory calculation pattern for Engine Out Standard Instrument Departures (EOSID) using the Google Agent Development Kit (ADK) and Vertex AI (Gemini).
 
 In aviation, standard departure paths assume all engines are functional. If an engine fails, the aircraft's climb capability is significantly reduced. An EOSID is a custom departure procedure designed to guide the aircraft safely through mountainous terrain or around obstacles. Calculating these trajectories typically involves analyzing terrain heights, runway headings, and climb performance curves.
 
@@ -30,9 +30,12 @@ In this notebook, we use the Google Agent Development Kit (ADK) to build two coo
 1. **TrajectoryPlannerAgent**: A reasoning agent that proposes headings and climbs.
 2. **ObstacleVerifierAgent**: A validating agent that cross-checks proposed paths against terrain heights and OEI physics.
 
+> **Safety notice:** This is an educational simulation using synthetic terrain and simplified performance equations.
+> It is not suitable for flight planning, aircraft operation, or regulatory compliance.
+
 ### Objective
 
-In this tutorial, you learn how to configure and execute a multi-agent system using Google ADK to solve a safety-critical pathfinding problem.
+In this tutorial, you learn how to configure ADK agent definitions and execute a deterministic planner-verifier simulation for a safety-critical pathfinding example.
 
 This tutorial uses the following Google Cloud ML services and resources:
 
@@ -44,8 +47,8 @@ The steps performed include:
 - Define a physics model for One-Engine-Inoperative (OEI) climb profiles.
 - Define a mountainous airport obstacle database.
 - Define ADK tools for segment clearance calculation.
-- Configure a `TrajectoryPlannerAgent` and `ObstacleVerifierAgent` using Google ADK.
-- Run the negotiation loop to resolve a safe takeoff path.
+- Configure `TrajectoryPlannerAgent` and `ObstacleVerifierAgent` definitions using Google ADK.
+- Run a deterministic planner-verifier loop to resolve a simulated takeoff path.
 - Visualize the negotiated 3D trajectory path against terrain using matplotlib.
 
 ### Dataset
@@ -96,9 +99,8 @@ We recommend using the latest major version of each package (i.e. --upgrade).
 ```python
 GOOGLE_CLOUD_PROJECT = ""  # @param {type:"string"}
 
-import os
 if not GOOGLE_CLOUD_PROJECT:
-    GOOGLE_CLOUD_PROJECT = os.getenv("GOOGLE_CLOUD_PROJECT") or os.getenv("GOOGLE_CLOUD_PROJECT") or ""
+    raise ValueError("Set GOOGLE_CLOUD_PROJECT before running the notebook.")
 
 # Set the project id
 if GOOGLE_CLOUD_PROJECT:
@@ -111,10 +113,6 @@ You can also change the `GOOGLE_CLOUD_LOCATION` variable used by Vertex AI. Lear
 
 ```python
 GOOGLE_CLOUD_LOCATION = "us-central1"  # @param {type:"string"}
-
-import os
-if not GOOGLE_CLOUD_LOCATION:
-    GOOGLE_CLOUD_LOCATION = os.getenv("GOOGLE_CLOUD_LOCATION") or os.getenv("GOOGLE_CLOUD_LOCATION") or "us-central1"
 ```
 
 ### Authenticate your Google Cloud account
@@ -139,15 +137,10 @@ The Cloud SDK, code and other libraries currently run as the service account ide
 ### Create a Cloud Storage bucket
 
 Create a storage bucket to store intermediate artifacts such as datasets.
-
-- *{Note to notebook author: For any user-provided strings that need to be unique (like bucket names or model ID's), append "-unique" to the end so proper testing can occur}*
+The generated name includes the project ID to reduce collisions; replace it if your organization requires a different naming convention.
 
 ```python
-BUCKET_URI = ""  # @param {type:"string"}
-
-import os
-if not BUCKET_URI and GOOGLE_CLOUD_PROJECT:
-    BUCKET_URI = os.getenv("BUCKET_URI") or f"gs://aerospace-eosid-{GOOGLE_CLOUD_PROJECT}-unique"
+BUCKET_URI = f"gs://aerospace-eosid-{GOOGLE_CLOUD_PROJECT}-unique"  # @param {type:"string"}
 ```
 
 **Only if your bucket doesn't already exist**: Run the following cell to create your Cloud Storage bucket.
@@ -159,25 +152,10 @@ if not BUCKET_URI and GOOGLE_CLOUD_PROJECT:
 ### Import libraries
 
 ```python
-import os
-import sys
 import math
-import time
-import json
 from google.cloud import aiplatform
+from google.adk.agents import Agent
 import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D
-
-# Check if google-adk is imported correctly
-try:
-    import google.adk as adk
-    from google.adk.models import GeminiModel
-    from google.adk.agents import Agent
-    from google.adk.teams import Team
-    from google.adk.tools import tool
-except ImportError:
-    # Handle path or kernel reload issues in some environments
-    pass
 ```
 
 ### Initialize Vertex AI SDK for Python
@@ -198,19 +176,21 @@ Define the simplified physical calculations for OEI (One-Engine-Inoperative) cli
 AIRCRAFT_SPECS = {
     "weight_kg": 75000,
     "thrust_n_per_engine": 120000,
-    "oei_thrust_n": 120000, # one engine inoperative (50% thrust loss)
+    "oei_thrust_n": 120000,  # One engine remains operative.
     "drag_coefficient_cd": 0.045,
     "lift_to_drag_ratio": 12.0,
-    "takeoff_speed_mps": 75.0, # ~145 knots
-    "climb_gradient_min": 0.024 # standard commercial twin-engine OEI minimum gradient (2.4%)
+    "takeoff_speed_mps": 75.0,  # Approximately 145 knots.
+    "climb_gradient_min": 0.024,  # Simplified 2.4% OEI minimum gradient.
 }
 
-def calculate_oei_climb_angle(weight, thrust, lift_to_drag_ratio):
-    # Simplified equation: climb_gradient = (Thrust / (Weight * g)) - (1 / L_over_D)
+def calculate_oei_climb_angle(weight_kg, thrust_n, lift_to_drag_ratio):
+    """Return the simplified OEI climb gradient and angle in radians."""
     g = 9.81
-    weight_force = weight * g
-    climb_gradient = (thrust / weight_force) - (1.0 / lift_to_drag_ratio)
-    climb_angle_rad = math.asin(max(0.001, climb_gradient))
+    weight_force_n = weight_kg * g
+    climb_gradient = (thrust_n / weight_force_n) - (1.0 / lift_to_drag_ratio)
+    if not 0 < climb_gradient < 1:
+        raise ValueError("The simplified OEI climb gradient must be between zero and one.")
+    climb_angle_rad = math.asin(climb_gradient)
     return climb_gradient, climb_angle_rad
 
 # Innsbruck (LOWI) Runway 26 Mock Terrain peaks
@@ -230,7 +210,8 @@ print("Flight physics and Airport Obstacle database initialized.")
 
 ## Configuring Google ADK Multi-Agent Team
 
-We now configure our two collaborative agents using the Google Agent Development Kit (ADK).
+We now configure two collaborative ADK agent definitions.
+The following physics loop is deliberately deterministic so attendees can reproduce it without relying on a model response.
 1. **TrajectoryPlannerAgent**: Responsible for proposing path segments (headings and target heights).
 2. **ObstacleVerifierAgent**: Responsible for cross-checking the proposed segment coordinates against the obstacle database and confirming clearance.
 
@@ -242,7 +223,7 @@ def check_segment_clearance(x1: float, y1: float, z1: float, x2: float, y2: floa
     Returns 'APPROVED' if the path clears all obstacles by 35 feet (10.6m) margin,
     otherwise returns 'REJECTED' with the blocking obstacle name and recommended safe altitude or turn suggestion.
     """
-    safety_margin = 10.6 # 35 feet standard OEI obstacle clearance
+    safety_margin = 10.6  # 35 feet simplified obstacle clearance margin.
     # Find distance from line segment to each obstacle
     for obs in OBSTACLE_DATABASE:
         obs_x, obs_y, obs_z = obs["x"], obs["y"], obs["z"]
@@ -250,42 +231,57 @@ def check_segment_clearance(x1: float, y1: float, z1: float, x2: float, y2: floa
         dx = x2 - x1
         dy = y2 - y1
         dz = z2 - z1
-        line_len_sq = dx*dx + dy*dy + dz*dz
+        line_len_sq = dx * dx + dy * dy + dz * dz
         if line_len_sq == 0:
             continue
         
-        t = ((obs_x - x1)*dx + (obs_y - y1)*dy + (obs_z - z1)*dz) / line_len_sq
-        t = max(0.0, min(1.0, t)) # Clamp to segment
+        t = ((obs_x - x1) * dx + (obs_y - y1) * dy + (obs_z - z1) * dz) / line_len_sq
+        t = max(0.0, min(1.0, t))  # Clamp to the segment.
         
         closest_x = x1 + t*dx
         closest_y = y1 + t*dy
         closest_z = z1 + t*dz
         
-        dist_horizontal = math.sqrt((obs_x - closest_x)**2 + (obs_y - closest_y)**2)
-        # Check vertical clearance if horizontally close
-        if dist_horizontal < 300: # inside obstacle radius
+        dist_horizontal = math.hypot(obs_x - closest_x, obs_y - closest_y)
+        # The synthetic obstacles use a 500 m horizontal protected radius.
+        if dist_horizontal < 500:
             if closest_z < obs_z + safety_margin:
                 required_z = obs_z + safety_margin
-                return f"REJECTED: Collision risk with {obs['name']} at coordinates (x={obs_x}, y={obs_y}, z={obs_z}). Segment height is {closest_z:.1f}m, but must clear at least {required_z:.1f}m. Suggest turning left or right to avoid."
+                return (
+                    f"REJECTED: Collision risk with {obs['name']} at "
+                    f"(x={obs_x}, y={obs_y}, z={obs_z}). Segment height is "
+                    f"{closest_z:.1f} m but must clear {required_z:.1f} m."
+                )
     
     return "APPROVED"
 
-# Google ADK configuration block
-print("ADK tools and agents prepared.")
+trajectory_planner_agent = Agent(
+    name="trajectory_planner",
+    model="gemini-2.5-flash",
+    instruction="Propose conservative heading changes and climb segments for the simulation.",
+)
+obstacle_verifier_agent = Agent(
+    name="obstacle_verifier",
+    model="gemini-2.5-flash",
+    instruction="Use the clearance tool to reject unsafe simulated flight segments.",
+    tools=[check_segment_clearance],
+)
+print("ADK agent definitions and the clearance tool are prepared.")
 ```
 
 ## Running the Autonomous Trajectory Negotiation Loop
 
-The `TrajectoryPlannerAgent` and `ObstacleVerifierAgent` will communicate. The planner proposes path points, and the verifier checks and advises. We run the simulation from runway end.
+The planner and verifier roles are represented by a deterministic loop, rather than live model calls, so the result is reproducible and the safety decision remains inspectable.
+The simulation starts at the runway origin and deliberately encounters the mock obstacle field.
 
 ```python
-# Simulation of the Agent Negotiation Loop
+# Deterministic planner-verifier simulation; this does not make live model calls.
 print("--- Starting Trajectory Negotiation Loop ---")
 
 current_pos = {"x": 0.0, "y": 0.0, "z": 0.0}
 trajectory_path = [tuple(current_pos.values())]
-target_altitude = 1200.0 # Safe exit altitude
-heading = 260.0 # Runway heading
+target_altitude = 1200.0  # Simulated exit altitude.
+heading = 0.0  # Points toward the synthetic obstacle field.
 
 # Twin-engine OEI Climb Performance
 gradient, _ = calculate_oei_climb_angle(
@@ -295,8 +291,10 @@ gradient, _ = calculate_oei_climb_angle(
 )
 
 print(f"OEI Climb Gradient: {gradient:.4f} ({gradient*100:.2f}%)")
+if gradient < AIRCRAFT_SPECS["climb_gradient_min"]:
+    raise RuntimeError("The simulated OEI climb gradient is below the configured minimum.")
 
-segment_distance = 1500.0 # m per step
+segment_distance = 1500.0  # Meters per step.
 max_steps = 15
 step = 0
 
@@ -312,20 +310,19 @@ while current_pos["z"] < target_altitude and step < max_steps:
         next_x, next_y, next_z
     )
     
-    print(f"\n[Step {step}] Planner proposes: to (x={next_x:.1f}, y={next_y:.1f}, z={next_z:.1f}) on Heading {heading:.1f}")
+    print(
+        f"\n[Step {step}] Planner proposes: "
+        f"(x={next_x:.1f}, y={next_y:.1f}, z={next_z:.1f}) on heading {heading:.1f}"
+    )
     print(f"[Step {step}] Verifier response: {status}")
     
     if "APPROVED" in status:
         current_pos = {"x": next_x, "y": next_y, "z": next_z}
         trajectory_path.append(tuple(current_pos.values()))
-    else: 
-        # Rejected! Planner adapts based on feedback
-        if "Martinswand" in status or "Kematen" in status:
-            print("Planner: 'Re-routing: Turning LEFT (heading = 230) to avoid mountain ridge.'")
-            heading = 230.0
-        else:
-            print("Planner: 'Re-routing: Turning RIGHT (heading = 290) to avoid Kranebitten Ridge.'")
-            heading = 290.0
+    else:
+        # The planner takes a fixed diversion after a verifier rejection.
+        print("Planner: Re-routing to heading 30.0 to avoid the protected obstacle radius.")
+        heading = 30.0
             
 print("\nNegotiation completed. Final Trajectory Points:")
 for p in trajectory_path:
@@ -386,14 +383,14 @@ project](https://cloud.google.com/resource-manager/docs/creating-managing-projec
 
 Otherwise, you can delete the individual resources you created in this tutorial:
 
-In this tutorial, no persistent endpoints or models were deployed. Only temporary Cloud Storage objects may have been created, which can be deleted below.
+In this tutorial, no persistent endpoints or models were deployed.
+Set `delete_bucket` to `True` only when you want to delete the bucket configured above and all of its contents.
 
 ```python
-import os
-
-# Delete Cloud Storage objects that were created
-delete_bucket = False
-if delete_bucket or os.getenv("IS_TESTING"):
-    if BUCKET_URI and not BUCKET_URI.startswith("gs://aerospace-eosid"):
-        ! gsutil -m rm -r $BUCKET_URI
+# This is intentionally opt-in because deleting a bucket is irreversible.
+delete_bucket = False  # @param {type:"boolean"}
+if delete_bucket:
+    ! gsutil -m rm -r $BUCKET_URI
+else:
+    print(f"Bucket retained: {BUCKET_URI}")
 ```
