@@ -2,7 +2,7 @@
 
 Current state at the end of the last session.
 
-**Date:** 2026-07-11
+**Date:** 2026-07-12
 **Active Branch:** main
 
 ## Last Status
@@ -16,7 +16,7 @@ Current state at the end of the last session.
     - Phase 2: Technical Plan approved (plan.md and ARCHITECTURE.md updated)
     - Phase 3: Task Breakdown approved (T001.md, T002.md, T003.md created and checked)
     - Phase 4: Notebook authored (`src/aerospace-eosid-trajectory-engine.ipynb` created)
-    - Phase 5: Verified and Linted (reports/lint_report.md created; structure check and placeholders linters PASS)
+    - Phase 5: Approved after static review (source/artifact structure and placeholder checks PASS; deterministic trajectory harness PASS)
 - In Progress: None
 - Blocked: None
 
@@ -27,9 +27,10 @@ Current state at the end of the last session.
 
 ## Next Steps
 1. Create more workshop notebooks in `src/` following the same flat SDD cycle.
-2. Monitor PR actions and build execution pipelines once GCP CI/CD credentials are ready.
+2. Optionally run the live ADK execution cell in an authorized Vertex AI environment before workshop delivery.
+3. Monitor PR actions and build execution pipelines once GCP CI/CD credentials are ready.
 
 ## Important Context
-- Environment successfully lints and passes checks.
+- Source and compiled artifact successfully lint and pass static checks.
+- The notebook now uses `Runner.run_async()` with an in-memory ADK session; live Vertex AI execution is not verified in this local environment.
 - All temporary workspace files are prepared.
-

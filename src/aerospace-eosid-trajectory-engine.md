@@ -152,9 +152,14 @@ BUCKET_URI = f"gs://aerospace-eosid-{GOOGLE_CLOUD_PROJECT}-unique"  # @param {ty
 ### Import libraries
 
 ```python
+import asyncio
 import math
+import os
 from google.cloud import aiplatform
 from google.adk.agents import Agent
+from google.adk.runners import Runner
+from google.adk.sessions import InMemorySessionService
+from google.genai import types
 import matplotlib.pyplot as plt
 ```
 
@@ -163,6 +168,11 @@ import matplotlib.pyplot as plt
 Initialize the Vertex AI SDK for Python for your project.
 
 ```python
+# ADK reads these standard variables to select Vertex AI instead of an API key.
+os.environ["GOOGLE_GENAI_USE_VERTEXAI"] = "TRUE"
+os.environ["GOOGLE_CLOUD_PROJECT"] = GOOGLE_CLOUD_PROJECT
+os.environ["GOOGLE_CLOUD_LOCATION"] = GOOGLE_CLOUD_LOCATION
+
 aiplatform.init(project=GOOGLE_CLOUD_PROJECT, location=GOOGLE_CLOUD_LOCATION, staging_bucket=BUCKET_URI)
 ```
 
@@ -210,8 +220,9 @@ print("Flight physics and Airport Obstacle database initialized.")
 
 ## Configuring Google ADK Multi-Agent Team
 
-We now configure two collaborative ADK agent definitions.
-The following physics loop is deliberately deterministic so attendees can reproduce it without relying on a model response.
+We now configure two collaborative ADK agent definitions and a coordinator.
+The coordinator delegates the proposal to the planner and the safety review to the verifier, which can call the deterministic clearance tool.
+The later deterministic verifier remains the source of truth for the plotted path because an LLM response is not flight-safety evidence.
 1. **TrajectoryPlannerAgent**: Responsible for proposing path segments (headings and target heights).
 2. **ObstacleVerifierAgent**: Responsible for cross-checking the proposed segment coordinates against the obstacle database and confirming clearance.
 
@@ -258,24 +269,94 @@ def check_segment_clearance(x1: float, y1: float, z1: float, x2: float, y2: floa
 trajectory_planner_agent = Agent(
     name="trajectory_planner",
     model="gemini-2.5-flash",
-    instruction="Propose conservative heading changes and climb segments for the simulation.",
+    instruction=(
+        "Propose a conservative simulated EOSID segment. State its start and end "
+        "coordinates in meters and identify the assumed heading. Do not claim that "
+        "the result is suitable for real-world flight operations."
+    ),
 )
 obstacle_verifier_agent = Agent(
     name="obstacle_verifier",
     model="gemini-2.5-flash",
-    instruction="Use the clearance tool to reject unsafe simulated flight segments.",
+    instruction=(
+        "Review each simulated segment by calling check_segment_clearance with the "
+        "segment coordinates. Reject a segment unless the tool returns APPROVED."
+    ),
     tools=[check_segment_clearance],
 )
-print("ADK agent definitions and the clearance tool are prepared.")
+eosid_coordinator_agent = Agent(
+    name="eosid_coordinator",
+    model="gemini-2.5-flash",
+    instruction=(
+        "Coordinate the trajectory_planner and obstacle_verifier agents. Ask the "
+        "planner for a candidate, then ask the verifier to use its tool. Return a "
+        "short simulation-only summary that includes the verifier decision."
+    ),
+    sub_agents=[trajectory_planner_agent, obstacle_verifier_agent],
+)
+print("ADK planner, verifier, coordinator, and clearance tool are prepared.")
 ```
 
-## Running the Autonomous Trajectory Negotiation Loop
+## Running the ADK Trajectory Negotiation
 
-The planner and verifier roles are represented by a deterministic loop, rather than live model calls, so the result is reproducible and the safety decision remains inspectable.
-The simulation starts at the runway origin and deliberately encounters the mock obstacle field.
+This cell creates an in-memory ADK session and invokes `Runner.run_async()` against Vertex AI.
+It exposes the actual planner-to-verifier delegation and tool-call trace in the notebook output.
+Run it only after you have configured Application Default Credentials and enabled the Vertex AI API; it incurs Vertex AI usage.
 
 ```python
-# Deterministic planner-verifier simulation; this does not make live model calls.
+async def run_adk_negotiation() -> str:
+    """Run one inspectable ADK planner-verifier negotiation turn."""
+    app_name = "eosid_trajectory_workshop"
+    user_id = "workshop_attendee"
+    session_id = "eosid_negotiation"
+    session_service = InMemorySessionService()
+    await session_service.create_session(
+        app_name=app_name,
+        user_id=user_id,
+        session_id=session_id,
+    )
+    runner = Runner(
+        agent=eosid_coordinator_agent,
+        app_name=app_name,
+        session_service=session_service,
+    )
+    prompt = (
+        "Simulate one EOSID proposal from (0, 0, 0) to (1500, 0, 180). "
+        "Delegate the proposal and verification. The verifier must call its tool."
+    )
+    final_response = ""
+    async for event in runner.run_async(
+        user_id=user_id,
+        session_id=session_id,
+        new_message=types.Content(
+            role="user",
+            parts=[types.Part.from_text(text=prompt)],
+        ),
+    ):
+        if event.content and event.content.parts:
+            for part in event.content.parts:
+                if part.text:
+                    print(f"{event.author}: {part.text}")
+        if event.is_final_response() and event.content and event.content.parts:
+            final_response = "".join(
+                part.text for part in event.content.parts if part.text
+            )
+    if not final_response:
+        raise RuntimeError("ADK completed without a final trajectory negotiation response.")
+    return final_response
+
+
+adk_trajectory_summary = await run_adk_negotiation()
+print(f"ADK negotiation summary: {adk_trajectory_summary}")
+```
+
+## Running the Deterministic Safety Verifier
+
+The following independent calculation creates the visualization input.
+It deliberately encounters the mock obstacle field, rejects an unsafe segment, and takes a fixed diversion so every attendee can reproduce and inspect the safety result without treating the model output as operational guidance.
+
+```python
+# Deterministic planner-verifier simulation used for the plotted educational result.
 print("--- Starting Trajectory Negotiation Loop ---")
 
 current_pos = {"x": 0.0, "y": 0.0, "z": 0.0}

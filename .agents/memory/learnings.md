@@ -7,6 +7,7 @@ What worked, what didn't, and what we learned along the way.
 | 2026-07-11 | Worked | Local write file | Omitting `ArtifactMetadata` block when writing files outside the brain directory is required to write directly to the local project workspace. | Wrote workspace files without ArtifactMetadata. |
 | 2026-07-11 | Didn't Work | Subagent execution | Spawning multiple self-agents in parallel can trigger 429 rate limit errors (RESOURCE_EXHAUSTED) under quota-constrained environments. | Cleaned up subagents and processed remaining file creation sequentially. |
 | 2026-07-12 | Worked | Parameterization Linter | Setting `GOOGLE_CLOUD_PROJECT = ""` directly matches strict regex checks in notebook structure verification scripts while preventing the `check_todos.py` placeholder check from triggering on templates. | Refactored parameter assignment cells to use empty string initializations. |
+| 2026-07-12 | Pattern | ADK safety-critical workshops | Use a live `Runner.run_async()` demonstration for agent orchestration, but keep the trajectory used for visualization under a deterministic, inspectable verifier. | Added an ADK coordinator/session flow and retained the synthetic clearance harness as the plotted source of truth. |
 
 ## Categories
 - **Worked**: Approaches or patterns that proved effective

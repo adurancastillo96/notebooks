@@ -27,12 +27,12 @@ Requirements for authoring workshop notebooks, written in Easy Approach to Requi
 | FR-012 | The notebook shall include a Cleaning up section with resource deletion code | Must | Approved |
 | FR-013 | When a new notebook is created, the system shall generate it from `notebook_template.md` | Must | Approved |
 | FR-014 | The notebook shall follow the naming convention `category-name.md` and be stored in `src/`, and compile to `artifacts/category-name.ipynb` | Must | Approved |
-| FR-015 | The notebook shall define a multi-agent system using Google ADK (`google-adk`) in Python | Must | Draft |
-| FR-016 | The system shall include at least two specialized agents (e.g., `TrajectoryPlannerAgent` and `ObstacleVerifierAgent`) that communicate to design and verify flight trajectories | Must | Draft |
-| FR-017 | The notebook shall model a simplified aircraft engine-out (OEI) climb physics engine | Must | Draft |
-| FR-018 | The notebook shall mock a 3D obstacle database for a challenging airport profile | Must | Draft |
-| FR-019 | The agents shall autonomously search for and verify a trajectory path that guarantees standard engine-out obstacle clearance | Must | Draft |
-| FR-020 | The notebook shall generate 2D elevation profiles and 3D flight path visualizations of the finalized trajectory showing terrain clearance | Must | Draft |
+| FR-015 | The notebook shall define a multi-agent system using Google ADK (`google-adk`) in Python | Must | Implemented |
+| FR-016 | The system shall include at least two specialized agents (e.g., `TrajectoryPlannerAgent` and `ObstacleVerifierAgent`) that communicate to design and verify flight trajectories | Must | Implemented |
+| FR-017 | The notebook shall model a simplified aircraft engine-out (OEI) climb physics engine | Must | Implemented |
+| FR-018 | The notebook shall mock a 3D obstacle database for a challenging airport profile | Must | Implemented |
+| FR-019 | The agents shall autonomously search for and verify a trajectory path that guarantees standard engine-out obstacle clearance | Must | Implemented |
+| FR-020 | The notebook shall generate 2D elevation profiles and 3D flight path visualizations of the finalized trajectory showing terrain clearance | Must | Implemented |
 
 ## Non-Functional Requirements
 
@@ -44,8 +44,8 @@ Requirements for authoring workshop notebooks, written in Easy Approach to Requi
 | NFR-004 | The notebook shall include clear markdown explanations before each code cell | Should | Approved |
 | NFR-005 | The notebook shall handle errors gracefully with try/except blocks where appropriate | Should | Approved |
 | NFR-006 | The notebook shall import libraries in a single "Import libraries" cell | Should | Approved |
-| NFR-007 | The Google ADK agents shall use Gemini models via Vertex AI as the reasoning core | Must | Draft |
-| NFR-008 | The aircraft performance and obstacle safety margin calculations shall follow simplified standard aviation OEI guidelines | Must | Draft |
+| NFR-007 | The Google ADK agents shall use Gemini models via Vertex AI as the reasoning core | Must | Implemented |
+| NFR-008 | The aircraft performance and obstacle safety margin calculations shall follow simplified standard aviation OEI guidelines | Must | Implemented |
 
 ## How to Use This File
 - Write requirements using EARS patterns for consistency
